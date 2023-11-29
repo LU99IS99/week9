@@ -1,4 +1,8 @@
 import random
+import csv
+import time
+import os
+
 
 class Board:
     def __init__(self):
@@ -6,7 +10,7 @@ class Board:
 
     def print_board(self):
         for i in range(0, 9, 3):
-            print("|".join(self.board[i:i+3]))
+            print("|".join(self.board[i:i + 3]))
             if i < 6:
                 print("-----")
 
@@ -17,7 +21,9 @@ class Board:
         return False
 
     def check_winner(self, symbol):
-        lines = [(0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8), (0, 4, 8), (2, 4, 6)]
+        lines = [(0, 1, 2), (3, 4, 5), (6, 7, 8),
+                 (0, 3, 6), (1, 4, 7), (2, 5, 8),
+                 (0, 4, 8), (2, 4, 6)]
         return any(all(self.board[i] == symbol for i in line) for line in lines)
 
     def is_full(self):
@@ -52,11 +58,15 @@ class Game:
         self.board = Board()
         self.players = [player1, player2]
         self.current_player_index = 0
+        self.move_count = 0
+        self.start_time = time.time()
+        self.game_id = None
 
     def switch_player(self):
         self.current_player_index = 1 - self.current_player_index
 
-    def play(self):
+    def play(self, game_id):
+        self.game_id = game_id
         while True:
             self.board.print_board()
             current_player = self.players[self.current_player_index]
@@ -64,21 +74,57 @@ class Game:
                 print("Invalid move, try again.")
                 continue
 
+            self.move_count += 1
             if self.board.check_winner(current_player.symbol):
                 self.board.print_board()
                 print(f"Player {current_player.symbol} wins!")
+                self.record_game_result(current_player.symbol)
                 break
 
             if self.board.is_full():
                 self.board.print_board()
                 print("It's a tie!")
+                self.record_game_result("draw")
                 break
 
             self.switch_player()
 
+    def record_game_result(self, winner):
+        end_time = time.time()
+        duration = end_time - self.start_time
+        game_details = [
+            self.game_id,
+            self.start_time,
+            winner,
+            self.move_count,
+            end_time,
+            duration
+        ]
+        csv_file_path = 'game_results.csv'
+        with open(csv_file_path, 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(game_details)
+
 
 if __name__ == "__main__":
+    # Define the CSV file path
+    csv_file_path = 'game_results.csv'
+
+    # Check if the CSV file exists at the script's startup
+    if not os.path.isfile(csv_file_path):
+        # If it does not exist, create it with a header
+        with open(csv_file_path, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['game_id', 'start_time', 'winner', 'move_count', 'end_time', 'duration'])
+        print(f"New CSV file created at {os.path.abspath(csv_file_path)}")
+    else:
+        print(f"CSV file already exists at {os.path.abspath(csv_file_path)}")
+
     player1 = HumanPlayer("X")
-    player2 = BotPlayer("O") if input("How many human players? (1/2): ") == "1" else HumanPlayer("O")
-    game = Game(player1, player2)
-    game.play()
+    player_choice = input("How many human players? (1/2): ")
+    player2 = BotPlayer("O") if player_choice == "1" else HumanPlayer("O")
+
+    # Play 10 games
+    for game_id in range(10):
+        game = Game(player1, player2)
+        game.play(game_id)
